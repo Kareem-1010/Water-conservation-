@@ -1,0 +1,14 @@
+import matplotlib.pyplot as plt
+import pandas as pd
+from sklearn.linear_model import LinearRegression
+data = pd.read_excel("EEX_DATA")
+moisture = data["moisture"].values.reshape(-1, 1) 
+water = data["water"].values
+plt.scatter(moisture, water, color='black')
+plt.xlabel("moisture")
+plt.ylabel("water")
+reg = LinearRegression()
+reg.fit(moisture, water)
+X_moisture = [[12.0]]
+print(reg.predict(X_moisture))
+plt.show()

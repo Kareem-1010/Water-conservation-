@@ -1,0 +1,82 @@
+#include <SoftwareSerial.h>
+
+SoftwareSerial mySerial(D5, D6); // Using D5 (GPIO14) for RX and D6 (GPIO12) for TX on NodeMCU
+
+const int motionSensor = D1; // Using D1 (GPIO5) for motion sensor input
+int motionSensorState = LOW;
+const int buzzerPin = D2; // Using D2 (GPIO4) for buzzer output
+
+void setup() {
+  pinMode(motionSensor, INPUT);
+  pinMode(buzzerPin, OUTPUT);
+  
+  mySerial.begin(9600);
+  Serial.begin(9600);
+  Serial.println("STAND BY");
+}
+
+void loop() {
+  motionSensorState = digitalRead(motionSensor);
+
+  if (motionSensorState == HIGH) {
+    Serial.println("Motion Detected");
+    tone(buzzerPin, 1000); // Activate the buzzer
+    MotionMessage();
+    delay(5000);
+    noTone(buzzerPin); // Turn off the buzzer
+  } else {
+    noTone(buzzerPin); // Make sure buzzer is off if no motion detected
+  }
+}
+
+void MotionMessage() {
+  mySerial.println("AT+CMGF=1");
+  delay(1000);
+  mySerial.println("AT+CMGS=\"+9779810000000\"\r"); // Replace with your number
+  delay(1000);
+  mySerial.println("Motion Detected!");
+  delay(100);
+  mySerial.println((char)26);
+  delay(1000);
+}
+#include <SoftwareSerial.h>
+
+SoftwareSerial mySerial(D5, D6); // Using D5 (GPIO14) for RX and D6 (GPIO12) for TX on NodeMCU
+
+const int motionSensor = D1; // Using D1 (GPIO5) for motion sensor input
+int motionSensorState = LOW;
+const int buzzerPin = D2; // Using D2 (GPIO4) for buzzer output
+
+void setup() {
+  pinMode(motionSensor, INPUT);
+  pinMode(buzzerPin, OUTPUT);
+  
+  mySerial.begin(9600);
+  Serial.begin(9600);
+  Serial.println("STAND BY");
+}
+
+void loop() {
+  motionSensorState = digitalRead(motionSensor);
+
+  if (motionSensorState == HIGH) {
+    Serial.println("Motion Detected");
+    tone(buzzerPin, 1000); // Activate the buzzer
+    MotionMessage();
+    delay(5000);
+    noTone(buzzerPin); // Turn off the buzzer
+  } else {
+    noTone(buzzerPin); // Make sure buzzer is off if no motion detected
+  }
+}
+
+void MotionMessage() {
+  mySerial.println("AT+CMGF=1");
+  delay(1000);
+  mySerial.println("AT+CMGS=\"+9779810000000\"\r"); // Replace with your number
+  delay(1000);
+  mySerial.println("Motion Detected!");
+  delay(100);
+  mySerial.println((char)26);
+  delay(1000);
+}
