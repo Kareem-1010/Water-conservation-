@@ -1,82 +1,157 @@
-#include <SoftwareSerial.h>
+#include <ESP8266WiFi.h>
+#include <WiFiClient.h>
+#include <Base64.h> // Include the base64 library
 
-SoftwareSerial mySerial(D5, D6); // Using D5 (GPIO14) for RX and D6 (GPIO12) for TX on NodeMCU
+// WiFi credentials
+const char* ssid = "abc";
+const char* password = "00000000";
 
-const int motionSensor = D1; // Using D1 (GPIO5) for motion sensor input
-int motionSensorState = LOW;
-const int buzzerPin = D2; // Using D2 (GPIO4) for buzzer output
+// Email credentials
+const char* emailFrom = "kareemun1005@gmail.com";
+const char* emailTo = "shashikumarr.btech23@rvu.edu.in";
+const char* emailSubject = "Motion Detected!";
+const char* emailMessage = "Motion has been detected by the PIR sensor.";
+
+// PIR sensor connected to pin D1 (GPIO5)
+const int PIR_PIN = D1;
+// Buzzer connected to pin D2 (GPIO4)
+const int BUZZER_PIN = D2;
+// Time to wait before turning off the buzzer after motion stops (in milliseconds)
+const int MOTION_DELAY = 2000;
+
+WiFiClient client;
 
 void setup() {
-  pinMode(motionSensor, INPUT);
-  pinMode(buzzerPin, OUTPUT);
-  
-  mySerial.begin(9600);
+  pinMode(PIR_PIN, INPUT);
+  pinMode(BUZZER_PIN, OUTPUT);
   Serial.begin(9600);
-  Serial.println("STAND BY");
+  Serial.println("PIR Sensor Test");
+  
+  // Connect to WiFi
+  Serial.println();
+  Serial.print("Connecting to ");
+  Serial.println(ssid);
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("");
+  Serial.println("WiFi connected");
 }
 
 void loop() {
-  motionSensorState = digitalRead(motionSensor);
-
-  if (motionSensorState == HIGH) {
-    Serial.println("Motion Detected");
-    tone(buzzerPin, 1000); // Activate the buzzer
-    MotionMessage();
-    delay(5000);
-    noTone(buzzerPin); // Turn off the buzzer
-  } else {
-    noTone(buzzerPin); // Make sure buzzer is off if no motion detected
-  }
-}
-
-void MotionMessage() {
-  mySerial.println("AT+CMGF=1");
-  delay(1000);
-  mySerial.println("AT+CMGS=\"+9779810000000\"\r"); // Replace with your number
-  delay(1000);
-  mySerial.println("Motion Detected!");
-  delay(100);
-  mySerial.println((char)26);
-  delay(1000);
-}
-#include <SoftwareSerial.h>
-
-SoftwareSerial mySerial(D5, D6); // Using D5 (GPIO14) for RX and D6 (GPIO12) for TX on NodeMCU
-
-const int motionSensor = D1; // Using D1 (GPIO5) for motion sensor input
-int motionSensorState = LOW;
-const int buzzerPin = D2; // Using D2 (GPIO4) for buzzer output
-
-void setup() {
-  pinMode(motionSensor, INPUT);
-  pinMode(buzzerPin, OUTPUT);
+  int motionState = digitalRead(PIR_PIN);
   
-  mySerial.begin(9600);
-  Serial.begin(9600);
-  Serial.println("STAND BY");
-}
-
-void loop() {
-  motionSensorState = digitalRead(motionSensor);
-
-  if (motionSensorState == HIGH) {
-    Serial.println("Motion Detected");
-    tone(buzzerPin, 1000); // Activate the buzzer
-    MotionMessage();
-    delay(5000);
-    noTone(buzzerPin); // Turn off the buzzer
+  if (motionState == HIGH) {
+    Serial.println("Motion detected!");
+    tone(BUZZER_PIN, 1000); // Turn on the buzzer
+    
+    // Send email notification
+    sendEmail();
+    
+    delay(MOTION_DELAY); // Wait before checking motion again
   } else {
-    noTone(buzzerPin); // Make sure buzzer is off if no motion detected
+    Serial.println("No motion detected");
+    noTone(BUZZER_PIN); // Turn off the buzzer
   }
 }
 
-void MotionMessage() {
-  mySerial.println("AT+CMGF=1");
-  delay(1000);
-  mySerial.println("AT+CMGS=\"+9779810000000\"\r"); // Replace with your number
-  delay(1000);
-  mySerial.println("Motion Detected!");
+void sendEmail() {
+  if (!client.connect("smtp.gmail.com", 587)) {
+    Serial.println("Connection to SMTP server failed");
+    return;
+  }
+
+  if (!client.connected()) {
+    Serial.println("Connection to SMTP server failed");
+    return;
+  }
+
+  // Send EHLO command
+  client.println("EHLO NodeMCU");
   delay(100);
-  mySerial.println((char)26);
-  delay(1000);
+  // Start TLS
+  client.println("STARTTLS");
+  delay(100);
+
+  if (!client.connected()) {
+    Serial.println("Connection to SMTP server failed");
+    return;
+  }
+
+  // Send HELO command
+  client.println("HELO NodeMCU");
+  delay(100);
+
+  if (!client.connected()) {
+    Serial.println("Connection to SMTP server failed");
+    return;
+  }
+
+  // Send authentication command
+  client.println("AUTH LOGIN");
+  delay(100);
+  // Send email username (base64 encoded)
+  client.println(base64::encode("kareemun1005@gmail.com")); // Encode email
+  delay(100);
+  // Send email password (base64 encoded)
+  client.println(base64::encode("kareem1005@")); // Encode password
+  delay(100);
+
+  if (!client.connected()) {
+    Serial.println("Connection to SMTP server failed");
+    return;
+  }
+
+  // Send MAIL FROM command
+  client.println("MAIL FROM: <" + String(emailFrom) + ">");
+  delay(100);
+
+  if (!client.connected()) {
+    Serial.println("Connection to SMTP server failed");
+    return;
+  }
+
+  // Send RCPT TO command
+  client.println("RCPT TO: <" + String(emailTo) + ">");
+  delay(100);
+
+  if (!client.connected()) {
+    Serial.println("Connection to SMTP server failed");
+    return;
+  }
+
+  // Send DATA command
+  client.println("DATA");
+  delay(100);
+
+  if (!client.connected()) {
+    Serial.println("Connection to SMTP server failed");
+    return;
+  }
+
+  // Send email headers and message
+  client.println("From: Your Name <" + String(emailFrom) + ">");
+  client.println("To: Recipient <" + String(emailTo) + ">");
+  client.println("Subject: " + String(emailSubject));
+  client.println();
+  client.println(String(emailMessage));
+  client.println(".");
+  delay(100);
+
+  if (!client.connected()) {
+    Serial.println("Connection to SMTP server failed");
+    return;
+  }
+
+  // Send QUIT command
+  client.println("QUIT");
+  delay(100);
+  
+  Serial.println("Email sent");
+
+  // Disconnect from the SMTP server
+  client.stop();
 }
+
