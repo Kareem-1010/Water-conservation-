@@ -1,35 +1,66 @@
-#define BLYNK_TEMPLATE_ID "TMPL3xKRpsr7p"
-#define BLYNK_TEMPLATE_NAME "Soil Moisture Monitor"
-#define BLYNK_AUTH_TOKEN "3Tp0ma3qeiXLTK77Jff0Ms1zrUJ8Z66e"
+#include <ESP8266WiFi.h>
+#include <ESP8266WebServer.h>
 
-#define BLYNK_PRINT Serial
-#include <ESP8266WiFi.h> 
-#include <BlynkSimpleEsp8266.h>
+const char* ssid = "abc";  // Type your WiFi name
+const char* password = "00000000";  // Type your WiFi password
 
-char auth[] = "3Tp0ma3qeiXLTK77Jff0Ms1zrUJ8Z66e";
-char ssid[] = "xxx";
-char pass[] = "00000000";
+const int soilMoisturePin = A0;  // Pin connected to the soil moisture sensor
+const int waterPumpPin = D5;  // Pin connected to the water pump relay
 
-BlynkTimer timer;
+ESP8266WebServer server(80);
 
-void sendSensor()
-{
-  int value = analogRead(A0);
-  value = map(value,400,1023,100,0);
-  Blynk.virtualWrite(V0, value);
-  Serial.print("Soil Moisture : ");
-  Serial.println(value);
+void setup() {
+  Serial.begin(9600);
+  delay(10);
+
+  pinMode(soilMoisturePin, INPUT);
+  pinMode(waterPumpPin, OUTPUT);
+  digitalWrite(waterPumpPin, HIGH);  // Ensure the water pump is initially off 
+
+  // Connect to WiFi network
+  Serial.println();
+  Serial.println();
+  Serial.print("Connecting to ");
+  Serial.println(ssid);
+
+  WiFi.begin(ssid, password);
+
+  // Wait for WiFi connection
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+
+  Serial.println("");
+  Serial.println("WiFi connected");
+  Serial.print("IP Address: ");
+  Serial.println(WiFi.localIP());
+
+  server.on("/", HTTP_GET, []() {
+    server.send(200, "text/html", getIndexHTML());
+  });
+
+  server.on("/moisture", HTTP_GET, []() {
+    int moistureValue = analogRead(soilMoisturePin);
+    int moisturePercentage = map(moistureValue, 400, 1023, 0, 100);
+    server.send(200, "text/plain", String(moisturePercentage));
+  });
+
+  server.on("/waterPump", HTTP_GET, []() {
+    digitalWrite(waterPumpPin, !digitalRead(waterPumpPin));  // Toggle water pump state
+    server.send(200, "text/plain", "Water pump toggled");
+  });
+  
+  server.begin();
+  Serial.println("HTTP server started");
 }
 
-void setup()
-{   
-  Serial.begin(115200);
-  Blynk.begin(auth, ssid, pass);
-  timer.setInterval(100L, sendSensor);
+void loop() {
+  server.handleClient();
 }
 
-void loop()
-{
-  Blynk.run();
-  timer.run();
+String getIndexHTML() {
+  // Load the HTML content from a string
+  String html = "<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"UTF-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"><title>Soil Moisture Monitor</title><script src=\"https://www.gstatic.com/charts/loader.js\"></script></head><body><h1>Soil Moisture Monitor</h1><div id=\"chart_div\" style=\"width: 300px; height: 120px;\"></div><p>Soil Moisture: <span id=\"moistureValue\"></span>%</p><button id=\"waterPumpButton\" onclick=\"toggleWaterPump()\">Toggle Water Pump</button><script>google.charts.load('current', {'packages':['gauge']});google.charts.setOnLoadCallback(drawChart);function drawChart() {var data = google.visualization.arrayToDataTable([['Label', 'Value'],['Moisture', 0]]);var options = {width: 400, height: 120,redFrom: 0, redTo: 25,yellowFrom: 25, yellowTo: 75,greenFrom: 75, greenTo: 100,minorTicks: 5};var chart = new google.visualization.Gauge(document.getElementById('chart_div'));chart.draw(data, options);setInterval(function() {getMoistureValue()}, 5000);}function getMoistureValue() {var xhttp = new XMLHttpRequest();xhttp.onreadystatechange = function() {if (this.readyState == 4 && this.status == 200) {document.getElementById(\"moistureValue\").innerHTML = this.responseText;updateGauge(parseInt(this.responseText));}};xhttp.open(\"GET\", \"/moisture\", true);xhttp.send();}function toggleWaterPump() {var xhttp = new XMLHttpRequest();xhttp.onreadystatechange = function() {if (this.readyState == 4 && this.status == 200) {}};xhttp.open(\"GET\", \"/waterPump\", true);xhttp.send();}function updateGauge(value) {var data = google.visualization.arrayToDataTable([['Label', 'Value'],['Moisture', value]]);var chart = new google.visualization.Gauge(document.getElementById('chart_div'));chart.draw(data, options);}</script></body></html>";
+  return html;
 }
